@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Workweek % — Telegram Web App</title>
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --muted:#98a0b0; --accent:#6ee7b7; --danger:#ff7b7b;
+    color-scheme: dark;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{background:linear-gradient(180deg,#071028 0%, #05111a 100%);display:flex;align-items:center;justify-content:center;padding:20px;color:#e6eef6;}
+  .wrap{width:100%;max-width:760px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);padding:20px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6);}
+  h1{margin:0 0 8px;font-size:20px}
+  p.lead{margin:0 0 18px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type=time], input[type=number], select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;font-size:15px;box-sizing:border-box}
+  .row{display:flex;gap:8px}
+  .small{font-size:13px;color:var(--muted)}
+  .card{background:var(--card);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+  .stat{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .big{font-size:30px;font-weight:600}
+  .prog{height:12px;background:rgba(255,255,255,0.03);border-radius:9px;overflow:hidden;margin-top:8px}
+  .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#2fd4a0);transition:width .3s}
+  .muted{color:var(--muted);font-size:13px}
+  footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:13px}
+  .hint{color:var(--muted);font-size:13px;margin-top:8px}
+  .danger{color:var(--danger)}
+  .flexcol{display:flex;flex-direction:column;gap:8px}
+  .inline{display:flex;gap:8px;align-items:center}
+  .btn{padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);cursor:pointer;color:inherit}
+  @media (max-width:420px){ .big{font-size:24px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Процент рабочей недели</h1>
+    <p class="lead">Вводишь расписание рабочего дня и количество рабочих дней в неделе — приложение показывает, сколько процентов рабочего дня и рабочей недели уже прошло прямо сейчас.</p>
+
+    <div class="grid">
+      <div class="card">
+        <label>Время начала рабочего дня</label>
+        <input id="startTime" type="time" value="10:00" />
+      </div>
+      <div class="card">
+        <label>Время окончания рабочего дня</label>
+        <input id="endTime" type="time" value="19:00" />
+      </div>
+      <div class="card">
+        <label>Рабочие дни в неделе</label>
+        <select id="workDays">
+          <option value="5" selected>5 (Пн—Пт)</option>
+          <option value="6">6 (Пн—Сб)</option>
+          <option value="7">7 (Пн—Вс)</option>
+          <option value="4">4 (Пн—Чт)</option>
+          <option value="3">3</option>
+          <option value="2">2</option>
+          <option value="1">1</option>
+        </select>
+        <div class="hint">Считаем рабочие дни подряд с понедельника.</div>
+      </div>
+      <div class="card">
+        <label>Часы в рабочем дне (считается автоматически)</label>
+        <input id="hoursPerDay" type="number" min="0" step="0.25" value="9" />
+        <div class="muted">Можно поправить вручную — при изменении времени поле обновится автоматически.</div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-bottom:6px">
+      <div class="card">
+        <div class="stat"><div class="muted">Сейчас</div><div id="nowClock" class="small"></div></div>
+        <div class="stat"><div class="muted">День недели</div><div id="weekday" class="small"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="stat"><div class="muted">Длительность рабочего дня</div><div id="dayDuration" class="small"></div></div>
+        <div class="stat"><div class="muted">Всего рабочих часов в неделе</div><div id="weekHours" class="small"></div></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="stat"><div class="muted">Пройдено сегодня</div><div id="dayPct" class="big">0%</div></div>
+        <div class="prog"><div id="dayBar" class="bar"></div></div>
+        <div class="muted" id="dayLeft"></div>
+      </div>
+
+      <div class="card">
+        <div class="stat"><div class="muted">Пройдено за рабочую неделю</div><div id="weekPct" class="big">0%</div></div>
+        <div class="prog"><div id="weekBar" class="bar"></div></div>
+        <div class="muted" id="weekLeft"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+      <button id="applyNow" class="btn">Применить сейчас</button>
+      <button id="resetBtn" class="btn">Сбросить</button>
+      <div style="flex:1"></div>
+      <div class="muted">Версия: single-file • Обновляется в реальном времени</div>
+    </div>
+
+    <footer>
+      <div class="muted">Учёт рабочих дней: подряд с понедельника.</div>
+      <div class="muted">Если рабочее время выходит за полночь — считается как следующий день.</div>
+    </footer>
+  </div>
+
+<script>
+(function(){
+  // Helpers
+  const $ = id => document.getElementById(id);
+  const fmtTime = d => d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const pad = n => String(n).padStart(2,'0');
+
+  // Elements
+  const startTimeEl = $('startTime'), endTimeEl = $('endTime'), workDaysEl = $('workDays'),
+        hoursPerDayEl = $('hoursPerDay'), nowClockEl = $('nowClock'), weekdayEl = $('weekday'),
+        dayDurationEl = $('dayDuration'), weekHoursEl = $('weekHours'),
+        dayPctEl = $('dayPct'), weekPctEl = $('weekPct'), dayBar = $('dayBar'), weekBar = $('weekBar'),
+        dayLeftEl = $('dayLeft'), weekLeftEl = $('weekLeft'),
+        applyBtn = $('applyNow'), resetBtn = $('resetBtn');
+
+  // Read time string "HH:MM" -> {h,m}
+  function parseHM(s){
+    const parts = s.split(':').map(x=>parseInt(x,10));
+    if(parts.length<2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+    return {h:parts[0], m:parts[1]};
+  }
+
+  function toToday(ts, baseDate){
+    const d = new Date(baseDate);
+    d.setHours(ts.h, ts.m, 0, 0);
+    return d;
+  }
+
+  // week start: Monday 00:00
+  function mondayOf(date){
+    const d = new Date(date);
+    const day = d.getDay(); // 0 Sun .. 6 Sat
+    const diff = (day === 0) ? -6 : (1 - day); // if Sun -> -6, Mon (1) -> 0
+    d.setDate(d.getDate() + diff);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function secondsBetween(a,b){ return Math.max(0, (b - a) / 1000); }
+
+  // compute
+  function computeAndRender(){
+    const now = new Date();
+    nowClockEl.textContent = fmtTime(now);
+
+    // parse inputs
+    const s = parseHM(startTimeEl.value);
+    const e = parseHM(endTimeEl.value);
+    let workDays = parseInt(workDaysEl.value,10) || 5;
+
+    if(!s || !e || workDays <= 0){
+      dayPctEl.textContent = '—';
+      weekPctEl.textContent = '—';
+      return;
+    }
+
+    // create today's start/end
+    let start = toToday(s, now);
+    let end = toToday(e, now);
+    // if end <= start -> treat as next day end
+    if(end <= start) {
+      end = new Date(end.getTime() + 24*3600*1000);
+    }
+
+    const workDaySec = secondsBetween(start, end);
+    const workDayHours = Math.round((workDaySec/3600)*100)/100;
+    hoursPerDayEl.value = workDayHours;
+
+    // Week totals
+    const weekTotalSeconds = workDaySec * workDays;
+    weekHoursEl.textContent = (workDayHours * workDays) + ' ч';
+
+    // Determine day index in week (0 = Monday)
+    const jsDay = now.getDay(); // Sun 0 .. Sat 6
+    const dayIndex = (jsDay === 0) ? 6 : (jsDay - 1); // Mon=0..Sun=6
+    weekdayEl.textContent = now.toLocaleDateString([], {weekday:'long'}) + ' (' + (dayIndex+1) + '/7)';
+
+    // seconds elapsed today within working interval
+    let elapsedTodaySec = 0;
+    if(now <= start) elapsedTodaySec = 0;
+    else if(now >= end) elapsedTodaySec = workDaySec;
+    else elapsedTodaySec = secondsBetween(start, now);
+
+    // percent of day
+    let dayPercent = workDaySec === 0 ? 0 : (elapsedTodaySec / workDaySec) * 100;
+    dayPercent = Math.min(100, Math.max(0, dayPercent));
+    dayPctEl.textContent = Math.round(dayPercent*100)/100 + '%';
+    dayBar.style.width = dayPercent + '%';
+
+    const remainingTodaySec = Math.max(0, workDaySec - elapsedTodaySec);
+    dayLeftEl.textContent = (elapsedTodaySec === 0 ? 'Рабочий день ещё не начался' :
+                             (elapsedTodaySec >= workDaySec ? 'Рабочий день завершён' :
+                              `Прошло ${secondsToHuman(elapsedTodaySec)}, осталось ${secondsToHuman(remainingTodaySec)}`));
+
+    // compute elapsed week seconds: count full workdays passed this week + today's partial (if today is a workday)
+    let elapsedWeekSec = 0;
+    // number of weekdays passed before today: dayIndex (Mon=0 -> before today 0 days)
+    for(let i=0;i<dayIndex;i++){
+      if(i < workDays) elapsedWeekSec += workDaySec;
+    }
+    // add today if today is workday (i.e., dayIndex < workDays)
+    if(dayIndex < workDays){
+      elapsedWeekSec += elapsedTodaySec;
+    }
+    // if today is after workDays range (e.g., workDays=5 and today is Saturday) then elapsedWeekSec equals full workDays*workDaySec
+    if(dayIndex >= workDays){
+      // already included previous days; if week has passed some non-working days, that's fine
+    }
+
+    const weekPercent = weekTotalSeconds === 0 ? 0 : (elapsedWeekSec / weekTotalSeconds) * 100;
+    weekPctEl.textContent = Math.round(weekPercent*100)/100 + '%';
+    weekBar.style.width = Math.min(100,Math.max(0, weekPercent)) + '%';
+
+    const remainingWeekSec = Math.max(0, weekTotalSeconds - elapsedWeekSec);
+    weekLeftEl.textContent = (elapsedWeekSec >= weekTotalSeconds ? 'Рабочая неделя выполнена' :
+                              `Прошло ${secondsToHuman(elapsedWeekSec)}, осталось ${secondsToHuman(remainingWeekSec)}`);
+    dayDurationEl.textContent = workDayHours + ' ч (' + startTimeEl.value + '—' + endTimeEl.value + ')';
+  }
+
+  function secondsToHuman(sec){
+    sec = Math.round(sec);
+    const h = Math.floor(sec/3600); sec -= h*3600;
+    const m = Math.floor(sec/60); sec -= m*60;
+    const s = sec;
+    const parts = [];
+    if(h) parts.push(h+'ч');
+    if(m) parts.push(m+'м');
+    if(!h && !m) parts.push(s+'с');
+    return parts.join(' ');
+  }
+
+  // keep hoursPerDay in sync when times change and vice-versa
+  function updateHoursFromTimes(){
+    const s = parseHM(startTimeEl.value), e = parseHM(endTimeEl.value);
+    if(!s || !e) return;
+    const base = new Date();
+    let start = toToday(s, base), end = toToday(e, base);
+    if(end <= start) end = new Date(end.getTime() + 24*3600*1000);
+    const hrs = Math.round((secondsBetween(start,end)/3600)*100)/100;
+    hoursPerDayEl.value = hrs;
+  }
+
+  function updateTimesFromHours(){
+    const s = parseHM(startTimeEl.value);
+    const hrs = parseFloat(hoursPerDayEl.value);
+    if(!s || isNaN(hrs) || hrs < 0) return;
+    const base = new Date();
+    const start = toToday(s, base);
+    const end = new Date(start.getTime() + Math.round(hrs*3600*1000));
+    const hh = pad(end.getHours()), mm = pad(end.getMinutes());
+    endTimeEl.value = hh + ':' + mm;
+  }
+
+  // events
+  startTimeEl.addEventListener('change', ()=>{ updateHoursFromTimes(); computeAndRender(); });
+  endTimeEl.addEventListener('change', ()=>{ updateHoursFromTimes(); computeAndRender(); });
+  workDaysEl.addEventListener('change', computeAndRender);
+  hoursPerDayEl.addEventListener('change', ()=>{ updateTimesFromHours(); computeAndRender(); });
+
+  applyBtn.addEventListener('click', computeAndRender);
+  resetBtn.addEventListener('click', ()=>{
+    startTimeEl.value = '10:00'; endTimeEl.value = '19:00'; workDaysEl.value='5'; hoursPerDayEl.value='9'; computeAndRender();
+  });
+
+  // initial render + timer
+  updateHoursFromTimes();
+  computeAndRender();
+  setInterval(computeAndRender, 1000);
+
+  // Telegram WebApp small integration if available
+  try{
+    if(window.Telegram && window.Telegram.WebApp){
+      const webapp = window.Telegram.WebApp;
+      webapp.expand && webapp.expand();
+      // set theme colors if provided (best-effort)
+      try{
+        const theme = webapp.colorScheme === "dark" ? "dark" : "light";
+        // we already have dark styling; nothing else required
+      }catch(e){}
+    }
+  }catch(e){/*ignore*/}
+
+  // Accessibility: keyboard Enter -> apply
+  document.addEventListener('keydown', (ev)=>{
+    if(ev.key === 'Enter') { computeAndRender(); ev.preventDefault(); }
+  });
+
+})();
+</script>
+</body>
+</html>
